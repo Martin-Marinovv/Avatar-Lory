@@ -30,9 +30,27 @@
       font-family: 'Share Tech Mono', monospace;
     }
 
+    #manual-start {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.18);
+      color: var(--accent);
+      font-weight: bold;
+      text-align: center;
+      padding: 20px;
+      cursor: pointer;
+    }
+
+    #manual-start.hidden {
+      display: none;
+    }
+
     #avatar-container {
       position: relative;
-      /* Changed width and height to 16:9 aspect ratio */
       width: 800px;
       height: 450px;
       display: flex;
@@ -45,8 +63,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      /* Removed circular border-radius */
-      border-radius: 0%;
+      border-radius: 0;
       filter: drop-shadow(0 0 15px var(--accent-soft));
       opacity: 1;
       transition: opacity 0.5s ease;
@@ -58,12 +75,12 @@
       position: absolute;
       width: 100%;
       height: 100%;
-      /* Removed circular border-radius */
-      border-radius: 0%;
+      border-radius: 0;
       object-fit: cover;
       object-position: center center;
       opacity: 0;
       transition: opacity 0.3s ease;
+      pointer-events: none;
     }
 
     .active-reaction #ai-static {
@@ -84,6 +101,7 @@
       bottom: 20px;
       left: 20px;
       width: 400px;
+      max-width: calc(100vw - 40px);
       background: var(--bg-panel);
       color: var(--hud);
       font-size: 11px;
@@ -98,6 +116,8 @@
 </head>
 <body>
 
+  <div id="manual-start">[ CLICK TO INITIALIZE AVATAR SYSTEM ]</div>
+
   <div id="avatar-container">
     <img id="ai-static" src="avatar.jpg" alt="AI Avatar">
     <video id="ai-video" playsinline preload="auto">
@@ -111,6 +131,12 @@
     const log = document.getElementById('debug-log');
     const container = document.getElementById('avatar-container');
     const video = document.getElementById('ai-video');
+    const startOverlay = document.getElementById('manual-start');
+
+    let systemInitialized = false;
+    let autoLoopStarted = false;
+    let autoInterval = null;
+    let firstTriggerTimeout = null;
 
     function setLog(msg) {
       log.innerText = `>> ${msg}`;
@@ -121,26 +147,38 @@
     }
 
     async function initializeSystem() {
+      if (systemInitialized) return;
+      systemInitialized = true;
+
+      startOverlay.classList.add('hidden');
+      appendLog('ENGINE INITIALIZING...');
+
       try {
+        video.volume = 1.0;
         await video.play();
         video.pause();
         video.currentTime = 0;
         appendLog('VIDEO SYSTEM: READY.');
       } catch (err) {
         appendLog('VIDEO PRELOAD WARNING.');
+        console.error(err);
       }
 
       startAutoLoop();
     }
 
     function startAutoLoop() {
+      if (autoLoopStarted) return;
+      autoLoopStarted = true;
+
       appendLog('AUTO PROTOCOL ACTIVE (3 MIN INTERVAL)');
 
-      setTimeout(() => {
+      firstTriggerTimeout = setTimeout(() => {
+        appendLog('INITIAL AUTO TRIGGER EXECUTED');
         playReaction();
       }, 5000);
 
-      setInterval(() => {
+      autoInterval = setInterval(() => {
         appendLog('AUTO TRIGGER EXECUTED');
         playReaction();
       }, 180000);
@@ -152,8 +190,9 @@
       container.classList.add('active-reaction');
       video.currentTime = 0;
 
-      video.play().catch(() => {
+      video.play().catch((err) => {
         appendLog('VIDEO PLAYBACK FAILED');
+        console.error(err);
         container.classList.remove('active-reaction');
       });
 
@@ -167,18 +206,23 @@
       appendLog('SYSTEM READY');
 
       try {
+        video.volume = 1.0;
         await video.play();
         video.pause();
         video.currentTime = 0;
         appendLog('AUTOPLAY UNLOCK: OK');
+        startOverlay.classList.add('hidden');
         initializeSystem();
       } catch (e) {
         appendLog('INTERACTION REQUIRED TO START AUDIO/VIDEO');
-        window.addEventListener('click', () => {
-          initializeSystem();
-        }, { once: true });
+        console.log(e);
       }
     });
+
+    startOverlay.addEventListener('click', () => {
+      initializeSystem();
+    }, { once: true });
   </script>
+
 </body>
 </html>
