@@ -90,7 +90,6 @@
       text-transform: uppercase;
       pointer-events: none;
       line-height: 1.45;
-      white-space: normal;
     }
 
     #manual-start {
@@ -126,8 +125,8 @@
   </div>
 
   <div id="debug-log">
-    &gt;&gt; AWS TACTICAL AI: STANDBY<br>
-    &gt;&gt; LOADING VISUAL SYSTEMS...
+    >> AWS TACTICAL AI: STANDBY<br>
+    >> SYSTEM READY
   </div>
 
   <script>
@@ -136,7 +135,6 @@
     const container = document.getElementById('avatar-container');
     const video = document.getElementById('ai-video');
 
-    let socket = null;
     let initialized = false;
 
     function appendLog(message) {
@@ -160,71 +158,25 @@
         video.currentTime = 0;
         appendLog('VIDEO SYSTEM: READY.');
       } catch (err) {
-        appendLog('VIDEO PRELOAD WARNING: USER INTERACTION MAY BE REQUIRED.');
-        console.error('Video preload error:', err);
+        appendLog('VIDEO PRELOAD WARNING.');
       }
 
-      await connectRestream();
+      startAutoLoop();
     }
 
-    async function connectRestream() {
-      appendLog('USING DIRECT ACCESS TOKEN FOR TEST...');
+    function startAutoLoop() {
+      appendLog('AUTO PROTOCOL ACTIVE (3 MIN INTERVAL)');
 
-      try {
-        // PASTE YOUR FRESH RESTREAM OAUTH ACCESS TOKEN HERE
-        const accessToken = 'https://chat.restream.io/embed?token=3a4f3fc1-eaf1-404e-af74-770deb2a9cb7';
+      // First trigger after 5 seconds (optional)
+      setTimeout(() => {
+        playReaction();
+      }, 5000);
 
-        if (!accessToken || accessToken === 'PASTE_YOUR_ACCESS_TOKEN_HERE') {
-          appendLog('NO ACCESS TOKEN SET IN INDEX.HTML');
-          return;
-        }
-
-        appendLog('INITIATING WEBSOCKET PROTOCOL...');
-
-        socket = new WebSocket(
-          `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
-        );
-
-        socket.onopen = () => {
-          appendLog('[SUCCESS] MULTI-CHAT LINK ESTABLISHED.');
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('Restream message:', data);
-
-            if (data.action === 'message' && data.payload) {
-              const author = data.payload.authorName || 'unknown';
-              const text = data.payload.text || '';
-              const platform = data.payload.platformIdentifier || 'stream';
-
-              log.innerHTML = `> [${platform.toUpperCase()}] ${author}: ${escapeHtml(text)}`;
-
-              if (text.trim().toLowerCase() === '!apply') {
-                appendLog('EXECUTING RECRUITMENT PROTOCOL...');
-                playReaction();
-              }
-            }
-          } catch (err) {
-            appendLog('MESSAGE PARSE WARNING.');
-            console.error('Message parse error:', err);
-          }
-        };
-
-        socket.onerror = (err) => {
-          appendLog('CONNECTION ERROR: INVALID OR EXPIRED TOKEN.');
-          console.error('WebSocket error:', err);
-        };
-
-        socket.onclose = (event) => {
-          appendLog(`SOCKET CLOSED: CODE ${event.code}.`);
-        };
-
-      } catch (error) {
-        appendLog(`CONNECT FAILED: ${error.message}`);
-        console.error(error);
-      }
+      // Then every 3 minutes
+      setInterval(() => {
+        appendLog('AUTO TRIGGER EXECUTED');
+        playReaction();
+      }, 180000); // 3 minutes
     }
 
     function playReaction() {
@@ -233,9 +185,8 @@
       container.classList.add('active-reaction');
       video.currentTime = 0;
 
-      video.play().catch(err => {
-        appendLog('VIDEO PLAYBACK FAILED.');
-        console.error('Video play error:', err);
+      video.play().catch(() => {
+        appendLog('VIDEO PLAYBACK FAILED');
         container.classList.remove('active-reaction');
       });
 
@@ -245,32 +196,23 @@
       };
     }
 
-    function escapeHtml(str) {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
     window.addEventListener('load', async () => {
-      appendLog('SYSTEM READY.');
+      appendLog('SYSTEM READY');
 
       try {
         await video.play();
         video.pause();
         video.currentTime = 0;
-        appendLog('AUTOPLAY UNLOCK: OK.');
+        appendLog('AUTOPLAY UNLOCK: OK');
         startOverlay.classList.add('hidden');
         await initializeAI();
-      } catch (err) {
-        appendLog('AWAITING MANUAL USER INITIALIZATION...');
-        console.log('Autoplay/manual init required:', err);
+      } catch {
+        appendLog('AWAITING USER INITIALIZATION');
       }
     });
 
     startOverlay.addEventListener('click', initializeAI);
   </script>
+
 </body>
 </html>
