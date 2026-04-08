@@ -1,73 +1,321 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>AWS Tactical AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
   <style>
-    body { margin: 0; overflow: hidden; background: transparent; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Share Tech Mono', monospace; }
-    #click-shield { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; cursor: pointer; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); color: #02a8ff; font-weight: bold; text-align: center; padding: 20px; }
-    #avatar-container { position: relative; width: 600px; height: 600px; display: flex; justify-content: center; align-items: center; animation: drift 6s ease-in-out infinite; }
-    #ai-static { width: 90%; height: 90%; object-fit: cover; border-radius: 50%; filter: drop-shadow(0 0 15px rgba(2, 168, 255, 0.4)); opacity: 1; transition: opacity 0.5s ease; }
-    #ai-video { position: absolute; width: 90%; height: 90%; border-radius: 50%; object-fit: cover; opacity: 0; transition: opacity 0.3s ease; }
-    .active-reaction #ai-static { opacity: 0; }
-    .active-reaction #ai-video { opacity: 1; }
-    @keyframes drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-    #debug-log { position: absolute; bottom: 20px; left: 20px; width: 420px; background: rgba(0,0,0,0.9); color: #66fcf1; font-size: 11px; padding: 12px; border: 1px solid #02a8ff; text-transform: uppercase; pointer-events: none; line-height: 1.4; }
+    :root {
+      --accent: #02a8ff;
+      --accent-soft: rgba(2, 168, 255, 0.4);
+      --hud: #66fcf1;
+      --bg-panel: rgba(0, 0, 0, 0.9);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    #avatar-container {
+      position: relative;
+      width: 600px;
+      height: 600px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: drift 6s ease-in-out infinite;
+    }
+
+    #ai-static {
+      width: 90%;
+      height: 90%;
+      object-fit: cover;
+      border-radius: 50%;
+      filter: drop-shadow(0 0 15px var(--accent-soft));
+      opacity: 1;
+      transition: opacity 0.5s ease;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    #ai-video {
+      position: absolute;
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .active-reaction #ai-static {
+      opacity: 0;
+    }
+
+    .active-reaction #ai-video {
+      opacity: 1;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    #debug-log {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 460px;
+      max-width: calc(100vw - 40px);
+      background: var(--bg-panel);
+      color: var(--hud);
+      font-size: 11px;
+      padding: 12px;
+      border: 1px solid var(--accent);
+      text-transform: uppercase;
+      pointer-events: none;
+      line-height: 1.45;
+      white-space: normal;
+    }
+
+    #manual-start {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.18);
+      color: var(--accent);
+      font-weight: bold;
+      text-align: center;
+      padding: 20px;
+      cursor: pointer;
+    }
+
+    #manual-start.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
-  <div id="click-shield" onclick="initializeAI()">[ CLICK TO SYNC AWS AI WITH RESTREAM ]</div>
+  <div id="manual-start">[ CLICK TO INITIALIZE AVATAR SYSTEM ]</div>
 
   <div id="avatar-container">
-    <img id="ai-static" src="avatar.jpg">
+    <img id="ai-static" src="avatar.jpg" alt="AI Avatar">
+
     <video id="ai-video" muted playsinline preload="auto">
       <source src="Lory apply_720p-white background.webm" type="video/webm">
     </video>
   </div>
 
-  <div id="debug-log">>> AWS TACTICAL AI: STANDBY<br>>> WAITING FOR USER INITIALIZATION...</div>
+  <div id="debug-log">
+    &gt;&gt; AWS TACTICAL AI: STANDBY<br>
+    &gt;&gt; LOADING VISUAL SYSTEMS...
+  </div>
 
   <script>
-  async function connectRestream() {
-    log.innerHTML += "<br>>> CONNECTING TO RESTREAM...";
+    const log = document.getElementById('debug-log');
+    const startOverlay = document.getElementById('manual-start');
+    const container = document.getElementById('avatar-container');
+    const video = document.getElementById('ai-video');
 
-    try {
-      // This should come from your backend, not hardcoded in GitHub Pages
-      const accessToken = await fetch("/api/restream-token").then(r => r.text());
+    let socket = null;
+    let initialized = false;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+    const maxReconnectAttempts = 10;
 
-      const socket = new WebSocket(
-        `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
-      );
-
-      socket.onopen = () => {
-        log.innerHTML += "<br>>> [SUCCESS] CHAT LINK ESTABLISHED.";
-      };
-
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log("Restream message:", data);
-
-        if (data.action === "message" && data.payload?.text?.trim().toLowerCase() === "!apply") {
-          log.innerHTML += "<br>>> EXECUTING RECRUITMENT PROTOCOL...";
-          playReaction();
-        }
-      };
-
-      socket.onerror = (err) => {
-        log.innerHTML += "<br>>> CONNECTION ERROR: CHECK TOKEN / AUTH / ENDPOINT.";
-        console.error(err);
-      };
-
-      socket.onclose = (e) => {
-        log.innerHTML += `<br>>> SOCKET CLOSED: ${e.code}`;
-      };
-    } catch (e) {
-      log.innerHTML += "<br>>> TOKEN FETCH FAILED.";
-      console.error(e);
+    function appendLog(message) {
+      log.innerHTML += `<br>>> ${message}`;
     }
-  }
-</script>
+
+    function setLog(message) {
+      log.innerHTML = `>> ${message}`;
+    }
+
+    async function initializeAI() {
+      if (initialized) return;
+      initialized = true;
+
+      startOverlay.classList.add('hidden');
+      appendLog('ENGINE INITIALIZING...');
+
+      try {
+        // Unlock video playback in browser
+        await video.play();
+        video.pause();
+        video.currentTime = 0;
+        appendLog('VIDEO SYSTEM: READY.');
+      } catch (err) {
+        appendLog('VIDEO PRELOAD WARNING: USER INTERACTION MAY BE REQUIRED.');
+        console.error('Video preload error:', err);
+      }
+
+      await connectRestream();
+    }
+
+    async function getRestreamAccessToken() {
+      // Replace this with your real backend endpoint
+      // Example: https://your-backend-domain.com/api/restream-token
+      const endpoint = 'https://YOUR-BACKEND-DOMAIN/api/restream-token';
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/plain, application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Token endpoint failed with status ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        if (!data.accessToken) {
+          throw new Error('Token endpoint returned JSON without accessToken');
+        }
+        return data.accessToken;
+      }
+
+      const token = (await response.text()).trim();
+      if (!token) {
+        throw new Error('Token endpoint returned empty token');
+      }
+      return token;
+    }
+
+    async function connectRestream() {
+      appendLog('REQUESTING CHAT ACCESS TOKEN...');
+
+      try {
+        const accessToken = await getRestreamAccessToken();
+
+        appendLog('INITIATING WEBSOCKET PROTOCOL...');
+
+        socket = new WebSocket(
+          `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
+        );
+
+        socket.onopen = () => {
+          reconnectAttempts = 0;
+          appendLog('[SUCCESS] MULTI-CHAT LINK ESTABLISHED.');
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Restream message:', data);
+
+            if (data.action === 'message' && data.payload) {
+              const author = data.payload.authorName || 'unknown';
+              const text = data.payload.text || '';
+              const platform = data.payload.platformIdentifier || 'stream';
+
+              log.innerHTML = `> [${platform.toUpperCase()}] ${author}: ${escapeHtml(text)}`;
+
+              if (text.trim().toLowerCase() === '!apply') {
+                appendLog('EXECUTING RECRUITMENT PROTOCOL...');
+                playReaction();
+              }
+            }
+          } catch (err) {
+            appendLog('MESSAGE PARSE WARNING.');
+            console.error('Message parse error:', err, event.data);
+          }
+        };
+
+        socket.onerror = (err) => {
+          appendLog('CONNECTION ERROR: CHECK AUTH / ENDPOINT / TOKEN.');
+          console.error('WebSocket error:', err);
+        };
+
+        socket.onclose = (event) => {
+          appendLog(`SOCKET CLOSED: CODE ${event.code}.`);
+
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts += 1;
+            const waitMs = 2000 * reconnectAttempts;
+            appendLog(`RECONNECT ATTEMPT ${reconnectAttempts}/${maxReconnectAttempts} IN ${waitMs / 1000}S...`);
+
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+              connectRestream().catch(console.error);
+            }, waitMs);
+          } else {
+            appendLog('MAX RECONNECT ATTEMPTS REACHED.');
+          }
+        };
+
+      } catch (error) {
+        appendLog(`TOKEN FETCH FAILED: ${error.message}`);
+        console.error('connectRestream error:', error);
+      }
+    }
+
+    function playReaction() {
+      if (container.classList.contains('active-reaction')) return;
+
+      container.classList.add('active-reaction');
+      video.currentTime = 0;
+
+      video.play().catch(err => {
+        appendLog('VIDEO PLAYBACK FAILED.');
+        console.error('Video play error:', err);
+        container.classList.remove('active-reaction');
+      });
+
+      video.onended = () => {
+        container.classList.remove('active-reaction');
+        setLog('AWS TACTICAL AI: STANDBY');
+      };
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Try autoplay init first for OBS/browser-source convenience
+    window.addEventListener('load', async () => {
+      appendLog('SYSTEM READY.');
+
+      try {
+        await video.play();
+        video.pause();
+        video.currentTime = 0;
+        appendLog('AUTOPLAY UNLOCK: OK.');
+        startOverlay.classList.add('hidden');
+        await initializeAI();
+      } catch (err) {
+        appendLog('AWAITING MANUAL USER INITIALIZATION...');
+        console.log('Autoplay/manual init required:', err);
+      }
+    });
+
+    startOverlay.addEventListener('click', initializeAI);
+  </script>
 </body>
 </html>
