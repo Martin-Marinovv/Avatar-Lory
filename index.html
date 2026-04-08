@@ -30,75 +30,44 @@
   <div id="debug-log">>> AWS TACTICAL AI: STANDBY<br>>> WAITING FOR USER INITIALIZATION...</div>
 
   <script>
-    const log = document.getElementById('debug-log');
-    const shield = document.getElementById('click-shield');
-    const container = document.getElementById('avatar-container');
-    const video = document.getElementById('ai-video');
+  async function connectRestream() {
+    log.innerHTML += "<br>>> CONNECTING TO RESTREAM...";
 
-    function initializeAI() {
-      shield.style.display = 'none';
-      log.innerHTML += "<br>>> ENGINE INITIALIZING...";
-      
-      video.play().then(() => {
-        video.pause();
-        log.innerHTML += "<br>>> VIDEO SYSTEM: READY.";
-        // Delaying connection slightly to ensure engine is clear
-        setTimeout(connectRestream, 500);
-      }).catch(e => {
-        log.innerHTML += "<br>>> VIDEO ERROR: PLEASE CLICK AGAIN.";
-      });
-    }
+    try {
+      // This should come from your backend, not hardcoded in GitHub Pages
+      const accessToken = await fetch("/api/restream-token").then(r => r.text());
 
-   function connectRestream() {
-      // Your verified token
-      const embedToken = '3a4f3fc1-eaf1-404e-af74-770deb2a9cb7'; 
-      
-      log.innerHTML += "<br>>> INITIATING WEBSOCKET PROTOCOL...";
-      
-      try {
-        // We add 'origin' handling to bypass local security blocks
-        const socket = new WebSocket(`wss://chat.api.restream.io/embed?token=${embedToken}`);
+      const socket = new WebSocket(
+        `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
+      );
 
-        socket.onopen = () => {
-          log.innerHTML += "<br>>> [SUCCESS] MULTI-CHAT LINK ESTABLISHED.";
-        };
-
-        socket.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.action === 'message') {
-            const author = data.payload.authorName;
-            const text = data.payload.text || "";
-            const platform = data.payload.platformIdentifier || 'stream';
-
-            log.innerHTML = `> [${platform.toUpperCase()}] ${author}: ${text}`;
-
-            if (text.toLowerCase().trim() === '!apply') {
-              log.innerHTML += "<br>>> EXECUTING RECRUITMENT PROTOCOL...";
-              playReaction();
-            }
-          }
-        };
-
-        socket.onerror = (err) => {
-          log.innerHTML += "<br>>> CONNECTION ERROR: BROWSER SECURITY BLOCK.";
-          console.log("Error details:", err);
-        };
-
-      } catch (error) {
-        log.innerHTML += "<br>>> CRITICAL ERROR: " + error.message;
-      }
-    }
-
-    function playReaction() {
-      if (container.classList.contains('active-reaction')) return;
-      container.classList.add('active-reaction');
-      video.currentTime = 0;
-      video.play();
-      video.onended = () => {
-        container.classList.remove('active-reaction');
-        log.innerHTML = ">> AWS AI: STANDBY";
+      socket.onopen = () => {
+        log.innerHTML += "<br>>> [SUCCESS] CHAT LINK ESTABLISHED.";
       };
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("Restream message:", data);
+
+        if (data.action === "message" && data.payload?.text?.trim().toLowerCase() === "!apply") {
+          log.innerHTML += "<br>>> EXECUTING RECRUITMENT PROTOCOL...";
+          playReaction();
+        }
+      };
+
+      socket.onerror = (err) => {
+        log.innerHTML += "<br>>> CONNECTION ERROR: CHECK TOKEN / AUTH / ENDPOINT.";
+        console.error(err);
+      };
+
+      socket.onclose = (e) => {
+        log.innerHTML += `<br>>> SOCKET CLOSED: ${e.code}`;
+      };
+    } catch (e) {
+      log.innerHTML += "<br>>> TOKEN FETCH FAILED.";
+      console.error(e);
     }
-  </script>
+  }
+</script>
 </body>
 </html>
