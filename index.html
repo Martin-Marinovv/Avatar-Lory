@@ -170,7 +170,73 @@
 
       await connectRestream();
     }
+   async function connectRestream() {
+      appendLog('REQUESTING CHAT ACCESS TOKEN...');
 
+      try {
+        const accessToken = await getRestreamAccessToken();
+
+        appendLog('INITIATING WEBSOCKET PROTOCOL...');
+
+        socket = new WebSocket(
+          `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
+        );
+
+        socket.onopen = () => {
+          reconnectAttempts = 0;
+          appendLog('[SUCCESS] MULTI-CHAT LINK ESTABLISHED.');
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Restream message:', data);
+
+            if (data.action === 'message' && data.payload) {
+              const author = data.payload.authorName || 'unknown';
+              const text = data.payload.text || '';
+              const platform = data.payload.platformIdentifier || 'stream';
+
+              log.innerHTML = `> [${platform.toUpperCase()}] ${author}: ${escapeHtml(text)}`;
+
+              if (text.trim().toLowerCase() === '!apply') {
+                appendLog('EXECUTING RECRUITMENT PROTOCOL...');
+                playReaction();
+              }
+            }
+          } catch (err) {
+            appendLog('MESSAGE PARSE WARNING.');
+            console.error('Message parse error:', err, event.data);
+          }
+        };
+
+        socket.onerror = (err) => {
+          appendLog('CONNECTION ERROR: CHECK AUTH / ENDPOINT / TOKEN.');
+          console.error('WebSocket error:', err);
+        };
+
+        socket.onclose = (event) => {
+          appendLog(`SOCKET CLOSED: CODE ${event.code}.`);
+
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts += 1;
+            const waitMs = 2000 * reconnectAttempts;
+            appendLog(`RECONNECT ATTEMPT ${reconnectAttempts}/${maxReconnectAttempts} IN ${waitMs / 1000}S...`);
+
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+              connectRestream().catch(console.error);
+            }, waitMs);
+          } else {
+            appendLog('MAX RECONNECT ATTEMPTS REACHED.');
+          }
+        };
+
+      } catch (error) {
+        appendLog(`TOKEN FETCH FAILED: ${error.message}`);
+        console.error('connectRestream error:', error);
+      }
+    }
     async function getRestreamAccessToken() {
       // Replace this with your real backend endpoint
       // Example: https://your-backend-domain.com/api/restream-token
