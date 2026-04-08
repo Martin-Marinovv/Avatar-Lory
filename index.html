@@ -32,8 +32,9 @@
 
     #avatar-container {
       position: relative;
-      width: 600px;
-      height: 600px;
+      /* Changed width and height to 16:9 aspect ratio */
+      width: 800px;
+      height: 450px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -41,10 +42,11 @@
     }
 
     #ai-static {
-      width: 90%;
-      height: 90%;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
-      border-radius: 50%;
+      /* Removed circular border-radius */
+      border-radius: 0%;
       filter: drop-shadow(0 0 15px var(--accent-soft));
       opacity: 1;
       transition: opacity 0.5s ease;
@@ -54,15 +56,14 @@
 
     #ai-video {
       position: absolute;
-      width: 84%;
-      height: 84%;
-      border-radius: 50%;
+      width: 100%;
+      height: 100%;
+      /* Removed circular border-radius */
+      border-radius: 0%;
       object-fit: cover;
       object-position: center center;
       opacity: 0;
       transition: opacity 0.3s ease;
-      pointer-events: none;
-      transform: translate(-10px, 8px);
     }
 
     .active-reaction #ai-static {
@@ -75,15 +76,14 @@
 
     @keyframes drift {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
+      50% { transform: translateY(-15px); }
     }
 
     #debug-log {
       position: absolute;
       bottom: 20px;
       left: 20px;
-      width: 460px;
-      max-width: calc(100vw - 40px);
+      width: 400px;
       background: var(--bg-panel);
       color: var(--hud);
       font-size: 11px;
@@ -91,69 +91,36 @@
       border: 1px solid var(--accent);
       text-transform: uppercase;
       pointer-events: none;
-      line-height: 1.45;
-    }
-
-    #manual-start {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.18);
-      color: var(--accent);
-      font-weight: bold;
-      text-align: center;
-      padding: 20px;
-      cursor: pointer;
-    }
-
-    #manual-start.hidden {
-      display: none;
+      line-height: 1.4;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
 
-  <div id="manual-start">[ CLICK TO INITIALIZE AVATAR SYSTEM ]</div>
-
   <div id="avatar-container">
     <img id="ai-static" src="avatar.jpg" alt="AI Avatar">
-
     <video id="ai-video" playsinline preload="auto">
-      <source src="Lory apply_720p-white background.webm" type="video/webm">
+      <source src="2026-04-08 10-54-37.mp4" type="video/mp4">
     </video>
   </div>
 
-  <div id="debug-log">
-    >> AWS TACTICAL AI: STANDBY<br>
-    >> SYSTEM READY
-  </div>
+  <div id="debug-log">>> AWS TACTICAL AI: INITIALIZING...</div>
 
   <script>
     const log = document.getElementById('debug-log');
-    const startOverlay = document.getElementById('manual-start');
     const container = document.getElementById('avatar-container');
     const video = document.getElementById('ai-video');
 
-    let initialized = false;
-
-    function appendLog(message) {
-      log.innerHTML += `<br>>> ${message}`;
+    function setLog(msg) {
+      log.innerText = `>> ${msg}`;
     }
 
-    function setLog(message) {
-      log.innerHTML = `>> ${message}`;
+    function appendLog(msg) {
+      log.innerHTML += `<br>>> ${msg}`;
     }
 
-    async function initializeAI() {
-      if (initialized) return;
-      initialized = true;
-
-      startOverlay.classList.add('hidden');
-      appendLog('ENGINE INITIALIZING...');
-
+    async function initializeSystem() {
       try {
         await video.play();
         video.pause();
@@ -204,15 +171,14 @@
         video.pause();
         video.currentTime = 0;
         appendLog('AUTOPLAY UNLOCK: OK');
-        startOverlay.classList.add('hidden');
-        await initializeAI();
-      } catch {
-        appendLog('AWAITING USER INITIALIZATION');
+        initializeSystem();
+      } catch (e) {
+        appendLog('INTERACTION REQUIRED TO START AUDIO/VIDEO');
+        window.addEventListener('click', () => {
+          initializeSystem();
+        }, { once: true });
       }
     });
-
-    startOverlay.addEventListener('click', initializeAI);
   </script>
-
 </body>
 </html>
