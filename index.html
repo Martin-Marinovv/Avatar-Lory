@@ -54,13 +54,15 @@
 
     #ai-video {
       position: absolute;
-      width: 90%;
-      height: 90%;
+      width: 84%;
+      height: 84%;
       border-radius: 50%;
       object-fit: cover;
+      object-position: center center;
       opacity: 0;
       transition: opacity 0.3s ease;
       pointer-events: none;
+      transform: translate(-10px, 8px);
     }
 
     .active-reaction #ai-static {
@@ -167,16 +169,14 @@
     function startAutoLoop() {
       appendLog('AUTO PROTOCOL ACTIVE (3 MIN INTERVAL)');
 
-      // First trigger after 5 seconds (optional)
       setTimeout(() => {
         playReaction();
       }, 5000);
 
-      // Then every 3 minutes
       setInterval(() => {
         appendLog('AUTO TRIGGER EXECUTED');
         playReaction();
-      }, 180000); // 3 minutes
+      }, 180000);
     }
 
     function playReaction() {
