@@ -138,9 +138,6 @@
 
     let socket = null;
     let initialized = false;
-    let reconnectAttempts = 0;
-    let reconnectTimer = null;
-    const maxReconnectAttempts = 10;
 
     function appendLog(message) {
       log.innerHTML += `<br>>> ${message}`;
@@ -158,7 +155,6 @@
       appendLog('ENGINE INITIALIZING...');
 
       try {
-        // Unlock video playback in browser
         await video.play();
         video.pause();
         video.currentTime = 0;
@@ -170,110 +166,18 @@
 
       await connectRestream();
     }
-   async function connectRestream() {
-      appendLog('REQUESTING CHAT ACCESS TOKEN...');
-
-      try {
-        const accessToken = await getRestreamAccessToken();
-
-        appendLog('INITIATING WEBSOCKET PROTOCOL...');
-
-        socket = new WebSocket(
-          `wss://chat.api.restream.io/ws?accessToken=${encodeURIComponent(accessToken)}`
-        );
-
-        socket.onopen = () => {
-          reconnectAttempts = 0;
-          appendLog('[SUCCESS] MULTI-CHAT LINK ESTABLISHED.');
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('Restream message:', data);
-
-            if (data.action === 'message' && data.payload) {
-              const author = data.payload.authorName || 'unknown';
-              const text = data.payload.text || '';
-              const platform = data.payload.platformIdentifier || 'stream';
-
-              log.innerHTML = `> [${platform.toUpperCase()}] ${author}: ${escapeHtml(text)}`;
-
-              if (text.trim().toLowerCase() === '!apply') {
-                appendLog('EXECUTING RECRUITMENT PROTOCOL...');
-                playReaction();
-              }
-            }
-          } catch (err) {
-            appendLog('MESSAGE PARSE WARNING.');
-            console.error('Message parse error:', err, event.data);
-          }
-        };
-
-        socket.onerror = (err) => {
-          appendLog('CONNECTION ERROR: CHECK AUTH / ENDPOINT / TOKEN.');
-          console.error('WebSocket error:', err);
-        };
-
-        socket.onclose = (event) => {
-          appendLog(`SOCKET CLOSED: CODE ${event.code}.`);
-
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts += 1;
-            const waitMs = 2000 * reconnectAttempts;
-            appendLog(`RECONNECT ATTEMPT ${reconnectAttempts}/${maxReconnectAttempts} IN ${waitMs / 1000}S...`);
-
-            clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(() => {
-              connectRestream().catch(console.error);
-            }, waitMs);
-          } else {
-            appendLog('MAX RECONNECT ATTEMPTS REACHED.');
-          }
-        };
-
-      } catch (error) {
-        appendLog(`TOKEN FETCH FAILED: ${error.message}`);
-        console.error('connectRestream error:', error);
-      }
-    }
-    async function getRestreamAccessToken() {
-      // Replace this with your real backend endpoint
-      // Example: https://your-backend-domain.com/api/restream-token
-      const endpoint = 'https://chat.restream.io/embed?token=3a4f3fc1-eaf1-404e-af74-770deb2a9cb7';
-
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/plain, application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Token endpoint failed with status ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const data = await response.json();
-        if (!data.accessToken) {
-          throw new Error('Token endpoint returned JSON without accessToken');
-        }
-        return data.accessToken;
-      }
-
-      const token = (await response.text()).trim();
-      if (!token) {
-        throw new Error('Token endpoint returned empty token');
-      }
-      return token;
-    }
 
     async function connectRestream() {
-      appendLog('REQUESTING CHAT ACCESS TOKEN...');
+      appendLog('USING DIRECT ACCESS TOKEN FOR TEST...');
 
       try {
-        const accessToken = await getRestreamAccessToken();
+        // PASTE YOUR FRESH RESTREAM OAUTH ACCESS TOKEN HERE
+        const accessToken = 'PASTE_YOUR_ACCESS_TOKEN_HERE';
+
+        if (!accessToken || accessToken === 'PASTE_YOUR_ACCESS_TOKEN_HERE') {
+          appendLog('NO ACCESS TOKEN SET IN INDEX.HTML');
+          return;
+        }
 
         appendLog('INITIATING WEBSOCKET PROTOCOL...');
 
@@ -282,7 +186,6 @@
         );
 
         socket.onopen = () => {
-          reconnectAttempts = 0;
           appendLog('[SUCCESS] MULTI-CHAT LINK ESTABLISHED.');
         };
 
@@ -305,35 +208,22 @@
             }
           } catch (err) {
             appendLog('MESSAGE PARSE WARNING.');
-            console.error('Message parse error:', err, event.data);
+            console.error('Message parse error:', err);
           }
         };
 
         socket.onerror = (err) => {
-          appendLog('CONNECTION ERROR: CHECK AUTH / ENDPOINT / TOKEN.');
+          appendLog('CONNECTION ERROR: INVALID OR EXPIRED TOKEN.');
           console.error('WebSocket error:', err);
         };
 
         socket.onclose = (event) => {
           appendLog(`SOCKET CLOSED: CODE ${event.code}.`);
-
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts += 1;
-            const waitMs = 2000 * reconnectAttempts;
-            appendLog(`RECONNECT ATTEMPT ${reconnectAttempts}/${maxReconnectAttempts} IN ${waitMs / 1000}S...`);
-
-            clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(() => {
-              connectRestream().catch(console.error);
-            }, waitMs);
-          } else {
-            appendLog('MAX RECONNECT ATTEMPTS REACHED.');
-          }
         };
 
       } catch (error) {
-        appendLog(`TOKEN FETCH FAILED: ${error.message}`);
-        console.error('connectRestream error:', error);
+        appendLog(`CONNECT FAILED: ${error.message}`);
+        console.error(error);
       }
     }
 
@@ -364,7 +254,6 @@
         .replace(/'/g, '&#039;');
     }
 
-    // Try autoplay init first for OBS/browser-source convenience
     window.addEventListener('load', async () => {
       appendLog('SYSTEM READY.');
 
